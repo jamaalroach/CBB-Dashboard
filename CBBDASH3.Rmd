@@ -18,6 +18,7 @@ library(ggthemes)
 library(shiny)
 library(plotly)
 library(lubridate)
+library(DT)
 
 
 
@@ -30,35 +31,42 @@ labour_data_test<-lapply(labour_data, as.numeric)
 labour_data_test<-as.data.frame(labour_data_test)
 colnames(labour_data_test)<-labour[1,]
 labour_data_test[,1]<-labour_data[,1]
+labour_data_test[,-1]<-round(labour_data_test[,-1],1)
 labour_data<-labour_data_test
-labour_data_long<-pivot_longer(labour_data, 2:18, "industry", values_to  = "quarterly")
-labour_data_long$year<-gsub("1Q","",labour_data_long$`Period Ended`)
-labour_data_long$year<-gsub("2Q","",labour_data_long$year)
-labour_data_long$year<-gsub("3Q","",labour_data_long$year)
-labour_data_long$year<-gsub("4Q","",labour_data_long$year)
-labour_data_long$quarterly<-as.numeric(labour_data_long$quarterly)
-labour_data_long$year<-as.numeric(labour_data_long$year)
-labour_data_long$period<-ifelse(str_detect(labour_data_long$`Period Ended`, "4Q"), "annnual", "quarterly")
-labour_data_long$date <-
+
+
+labour_data$year<-gsub("1Q","",labour_data$`Period Ended`)
+labour_data$year<-gsub("2Q","",labour_data$year)
+labour_data$year<-gsub("3Q","",labour_data$year)
+labour_data$year<-gsub("4Q","",labour_data$year)
+labour_data$year<-as.numeric(labour_data$year)
+labour_data$period<-ifelse(str_detect(labour_data$`Period Ended`, "4Q"), "annnual", "quarterly")
+labour_data$date <-
   if_else(
-    str_detect(labour_data_long$`Period Ended`, "1Q"),
-    paste("3/31/", labour_data_long$year),
+    str_detect(labour_data$`Period Ended`, "1Q"),
+    paste("3/31/", labour_data$year),
     if_else(
-    str_detect(labour_data_long$`Period Ended`, "2Q"),
-    paste("6/30/", labour_data_long$year),
+    str_detect(labour_data$`Period Ended`, "2Q"),
+    paste("6/30/", labour_data$year),
     if_else(
-    str_detect(labour_data_long$`Period Ended`, "3Q"),
-    paste("9/30/", labour_data_long$year),
+    str_detect(labour_data$`Period Ended`, "3Q"),
+    paste("9/30/", labour_data$year),
     if_else(
-    str_detect(labour_data_long$`Period Ended`, "4Q"),
-    paste("12/31/", labour_data_long$year),""
+    str_detect(labour_data$`Period Ended`, "4Q"),
+    paste("12/31/", labour_data$year),""
   )
     )
     )
   )
 
 
-labour_data_long$date<-as.Date(labour_data_long$date, "%m/%d/%Y")
+labour_data$date<-as.Date(labour_data$date, "%m/%d/%Y")
+fct_reorder(labour_data$`Period Ended`, labour_data$date)
+
+table_data<-labour_data[,-c(19,20,21)]
+
+labour_data_long<-pivot_longer(labour_data, 2:18, "industry", values_to  = "quarterly")
+
 labour_data_long$annual<-if_else(month(labour_data_long$date)==12, labour_data_long$quarterly, 0)
 
 ```
@@ -166,6 +174,8 @@ TABLE
 =====================================  
 
 
+
+
 Column {}
 -----------------------------------------------------------------------
 
@@ -173,7 +183,15 @@ Column {}
 
 ```{r}
 
-reactable(labour_data,  defaultColDef = colDef(align = "center", headerStyle = list(background="#f7f7f8")), highlight = TRUE, bordered = TRUE, filterable = TRUE, searchable = TRUE)
+
+datatable(
+  table_data, rownames = FALSE,
+  extensions = 'Buttons',
+  options = list(dom = 'Blftrip',scrollX=TRUE,
+    buttons = c("csv", "excel", "pdf"),
+    lengthMenu = list(c(10, 25, 50, -1), c(10, 25, 50, "All"))
+    
+  )
+)
 
 ```
-
