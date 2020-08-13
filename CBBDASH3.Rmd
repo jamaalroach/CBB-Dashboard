@@ -147,15 +147,17 @@ renderPlotly({
 
 
   plot1 <- ggplot(plot_data,
-                  aes_string(
-                    x = "date",
-                    y = input$Period
-                    )) + geom_col(fill = "steelblue", alpha = .7) + theme_fivethirtyeight() +
-    theme(axis.text.x = element_text(angle = 90)) + labs(title = paste(plot_data$industry, " - Employment Numbers"), y="Employed (000's)") +
+                  aes_string(x = "date",
+                             y = input$Period
+                             )) +
+    geom_col(fill = "steelblue", alpha = .7, aes_string(text=input$Period),
+                             group=1)  + theme_fivethirtyeight() +
+    theme(axis.text.x = element_text(angle = 90)) + labs(title = paste(plot_data$industry, "(000's)")
+                                                         ) +
     theme(panel.grid.major.x = element_blank()) + scale_x_date(breaks = plot_data$date, labels = plot_data$`Period Ended`) +
     theme(text = element_text(family = "Calibri"))
   
-  ggplotly(plot1, tooltip = input$Period)%>%config(displayModeBar = FALSE)
+  ggplotly(plot1, tooltip = paste0("text")) %>% config(displayModeBar = FALSE)
 })
 
 ```
