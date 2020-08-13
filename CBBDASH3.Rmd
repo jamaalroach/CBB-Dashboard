@@ -1,0 +1,179 @@
+---
+title: "Dashboard-drill_down_demo"
+runtime: shiny
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: row
+    vertical_layout: fill
+    
+    
+---
+
+```{r setup, include=FALSE, message=FALSE}
+library(flexdashboard)
+library(rio)
+library(tidyverse)
+library(reactable)
+library(ggthemes)
+library(shiny)
+library(plotly)
+library(lubridate)
+
+
+
+data_list<-data_list <- import_list("I5_LABOUR_1975_2019_Q4_2019.xlsx")
+labour<-data_list$Table_I5B
+labour<-labour[-c(1:3),]
+labour_data<-labour[2:41,]
+colnames(labour_data)<-labour[1,]
+labour_data_test<-lapply(labour_data, as.numeric)
+labour_data_test<-as.data.frame(labour_data_test)
+colnames(labour_data_test)<-labour[1,]
+labour_data_test[,1]<-labour_data[,1]
+labour_data<-labour_data_test
+labour_data_long<-pivot_longer(labour_data, 2:18, "industry", values_to  = "quarterly")
+labour_data_long$year<-gsub("1Q","",labour_data_long$`Period Ended`)
+labour_data_long$year<-gsub("2Q","",labour_data_long$year)
+labour_data_long$year<-gsub("3Q","",labour_data_long$year)
+labour_data_long$year<-gsub("4Q","",labour_data_long$year)
+labour_data_long$quarterly<-as.numeric(labour_data_long$quarterly)
+labour_data_long$year<-as.numeric(labour_data_long$year)
+labour_data_long$period<-ifelse(str_detect(labour_data_long$`Period Ended`, "4Q"), "annnual", "quarterly")
+labour_data_long$date <-
+  if_else(
+    str_detect(labour_data_long$`Period Ended`, "1Q"),
+    paste("3/31/", labour_data_long$year),
+    if_else(
+    str_detect(labour_data_long$`Period Ended`, "2Q"),
+    paste("6/30/", labour_data_long$year),
+    if_else(
+    str_detect(labour_data_long$`Period Ended`, "3Q"),
+    paste("9/30/", labour_data_long$year),
+    if_else(
+    str_detect(labour_data_long$`Period Ended`, "4Q"),
+    paste("12/31/", labour_data_long$year),""
+  )
+    )
+    )
+  )
+
+
+labour_data_long$date<-as.Date(labour_data_long$date, "%m/%d/%Y")
+labour_data_long$annual<-if_else(month(labour_data_long$date)==12, labour_data_long$quarterly, 0)
+
+```
+
+PLOTS
+=====================================  
+
+Column {.sidebar}
+-----------------------------------------------------------------------
+```{r, warning=FALSE}
+
+
+
+radioButtons(
+  inputId = "Period",
+  choiceNames = c("Quarterly", "Annual"),
+  choiceValues = c("quarterly", "annual"),
+  "Data Frequency",
+  inline = TRUE,
+  
+  selected = "quarterly",
+)
+
+
+dateRangeInput(inputId = "date_range", "Choose Time Period", start = min(labour_data_long$date), end = max(labour_data_long$date))
+
+selectInput(
+  "Industry",
+  label = "Select Industry:",
+  choices = c(
+    "Agriculture, Forestry & Fishing" ,
+    "Manufacturing"  ,
+    "Electricity, Gas, Steam, Water & Air Conditioning Supply",
+    "Construction, Mining & Quarrying" ,
+    "Wholesale & Retail Trade" ,
+    "Accommodation & Food Services"   ,
+    "Transportation & Storage"   ,
+    "Finance & Insurance"  ,
+    "Professional, Scientific & Technical Services"  ,
+    "Public Administration & Defence"   ,
+    "Administrative & Support Service"  ,
+    "Education"      ,
+    "Human Health & Social Work"  ,
+    "Activities of Households as Employers"   ,
+    "Other Groups*"  ,
+    "Other Services"  ,
+    "Total Employed"
+    
+  ),
+  
+  selected = "Total Employed" ,
+)
+
+
+```
+
+
+Column {}
+-----------------------------------------------------------------------
+
+###
+```{r}
+renderPlotly({
+  
+  
+  
+  if ("annual" %in% input$Period) {
+    plot_data <-
+      labour_data_long %>% filter(industry == input$Industry) %>% filter(date %in% seq(input$date_range[1],     input$date_range[2], by =
+                                                                                         "day")) %>% filter(annual > 0) %>% select(date, industry, annual, `Period Ended`)
+  }
+  else{
+    plot_data <-
+      labour_data_long %>% filter(industry == input$Industry) %>% filter(date %in% seq(input$date_range[1],     input$date_range[2], by =
+                                                                                         "day")) %>% select(date, industry, quarterly, `Period Ended`)
+  }
+  
+
+
+  plot1 <- ggplot(plot_data,
+                  aes_string(
+                    x = "date",
+                    y = input$Period
+                    )) + geom_col(fill = "steelblue", alpha = .7) + theme_fivethirtyeight() +
+    theme(axis.text.x = element_text(angle = 90)) + labs(title = paste(plot_data$industry, " - Employment Numbers"), y="Employed (000's)") +
+    theme(panel.grid.major.x = element_blank()) + scale_x_date(breaks = plot_data$date, labels = plot_data$`Period Ended`) +
+    theme(text = element_text(family = "Calibri"))
+  
+  ggplotly(plot1, tooltip = input$Period)%>%config(displayModeBar = FALSE)
+})
+
+```
+
+
+
+
+
+
+
+
+
+
+
+TABLE
+=====================================  
+
+
+Column {}
+-----------------------------------------------------------------------
+
+### EMPLOYMENT BY SECTOR (000's)
+
+```{r}
+
+reactable(labour_data,  defaultColDef = colDef(align = "center", headerStyle = list(background="#f7f7f8")), highlight = TRUE, bordered = TRUE, filterable = TRUE, searchable = TRUE)
+
+```
+
