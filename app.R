@@ -163,7 +163,7 @@ ui <- dashboardPage(
                     fluidRow(
                         column(width=6,
                                box(width = NULL,  h1("Welcome to your new dashboard!"),
-                                   h3("Key indicators are on the right. Navigate the menu on the left to acccess data by topic."))
+                                   h3("Key indicators are on the right. Navigate the menu on the left to access data by topic."))
                                ),
                     column(width=4,
                            valueBox("-14.9%", "GDP GROWTH RATE", color="red", icon=icon("chart-line"),width = NULL),
