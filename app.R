@@ -74,6 +74,9 @@ testvalue<-inflation_long%>%filter(base_year=="2001(Reweighted)", Date==max(Date
 testvalue2<-inflation_long%>%filter(base_year=="2001(Point to Point)", Date==max(Date))%>%select(rate)
 
 
+rpi<-read_xlsx("RPI2.xlsx")
+rpi$`Period Ended`<-as.Date(rpi$`Period Ended`)
+
 
 ########################################################
 
@@ -83,11 +86,14 @@ ui <- dashboardPage(
     dashboardSidebar(
         sidebarMenu(id="sidebarid",
                     
-                    
+                  menuItem("HOME", tabName = "home", icon = icon("home")
+                    ),        
                     
             menuItem("LABOUR DATA", tabName = "labour", icon = icon("laptop")
                      ),
             menuItem("INFLATION DATA", tabName = "inflation", icon = icon("chart-line")),
+            
+            
             conditionalPanel(
                 'input.sidebarid == "labour"',
             radioButtons(
@@ -152,6 +158,26 @@ ui <- dashboardPage(
     dashboardBody(
         tabItems(
             # First tab content
+            
+            tabItem(tabName ="home",
+                    fluidRow(
+                        column(width=6,
+                               box(width = NULL,  h1("Welcome to your new dashboard!"),
+                                   h3("Key indicators are on the right. Navigate the menu on the left to acccess data by topic."))
+                               ),
+                    column(width=4,
+                           valueBox("-14.9%", "GDP GROWTH RATE", color="red", icon=icon("chart-line"),width = NULL),
+                           valueBox("10.6%", "Unemployment Rate", color = "red", icon =icon( "laptop"),width = NULL),
+                           valueBox("5.2%", "Inflation Rate", color="orange", icon = icon("chart-line"),width = NULL),
+                           valueBox("BDS $1,553.9 Million", "Net International Reserves", color="green", icon = icon("money"),width = NULL)
+                           )
+                    )
+                    ),
+            
+            
+            
+            # Second tab item
+            
             tabItem(tabName = "labour",
                     fluidRow(
                         tabBox(id="tabset1", width=12,
@@ -162,7 +188,7 @@ ui <- dashboardPage(
                     )
             ),
             
-            # Second tab content
+            # Third tab content
             tabItem(tabName = "inflation",
                     fluidRow(tabBox(id="tabset3", width=12,
                            tabPanel("INFLATION RATE",
@@ -174,7 +200,7 @@ ui <- dashboardPage(
                                    
                                     
                             tabPanel("RETAIL PRICING INDEX",
-                                     h2("BLANK FOR ILLUSTATIVE PURPOSES"))))
+                                     box(DTOutput("table3"), width = 12))))
             )
         )
     )
@@ -321,6 +347,19 @@ server <- function(input, output) {
         })  
     
     
+    output$table3<-
+        renderDT({
+            
+            datatable(
+                rpi, rownames = FALSE,
+                extensions = 'Buttons',
+                options = list(dom = 'Blftrip',scrollX=TRUE,
+                               buttons = c("csv", "excel", "pdf"),
+                               lengthMenu = list(c(10, 25, 50, -1), c(10, 25, 50, "All"))
+                               
+                )
+            )
+        })  
     
     
     
