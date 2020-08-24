@@ -8,6 +8,7 @@ library(shiny)
 library(plotly)
 library(lubridate)
 library(DT)
+library(readxl)
 
 
 ################### EMPLOYMENT DATA ###################################
@@ -62,14 +63,15 @@ labour_data_long$annual<-if_else(month(labour_data_long$date)==12, labour_data_l
 ###################### INFLATION DATA #####################
 
 inflation<-read_xlsx("inflation.xlsx")
-colnames(inflation)<-c("date", "may_94_ma", "jul_01_ma","jul_01_rw_ma", "jul_01_rw_ptp")
-inflation$jul_01_rw_ma<-as.numeric(inflation$jul_01_rw_ma)
-inflation$jul_01_rw_ptp<-as.numeric(inflation$jul_01_rw_ptp)
-inflation$date<-as_date(inflation$date)
-inflation_long<-pivot_longer(inflation, cols = c(2:5), names_to = "type", values_to = "rate")
+colnames(inflation)<-c("Date", "1994", "2001","2001(Reweighted)", "2001(Point to Point)")
+inflation$`2001(Reweighted)`<-as.numeric(inflation$`2001(Reweighted)`)
+inflation$`2001(Point to Point)`<-as.numeric(inflation$`2001(Point to Point)`)
+inflation[,-1]<-round(inflation[,-1],2)
+inflation$Date<-as_date(inflation$Date)
+inflation_long<-pivot_longer(inflation, cols = c(2:5), names_to = "base_year", values_to = "rate")
 
-testvalue<-inflation_long%>%filter(type=="jul_01_rw_ma", date==max(date))%>%select(rate)
-testvalue2<-inflation_long%>%filter(type=="jul_01_rw_ptp", date==max(date))%>%select(rate)
+testvalue<-inflation_long%>%filter(base_year=="2001(Reweighted)", Date==max(Date))%>%select(rate)
+testvalue2<-inflation_long%>%filter(base_year=="2001(Point to Point)", Date==max(Date))%>%select(rate)
 
 
 
@@ -141,7 +143,7 @@ ui <- dashboardPage(
                 dateRangeInput(inputId = "date_range_inf", 
                                "Choose Time Period", 
                                start = "2015-01-01", 
-                               end = max(inflation$date))
+                               end = max(inflation$Date))
                 
                 
             )
@@ -167,7 +169,7 @@ ui <- dashboardPage(
                                     fluidRow(
                                     valueBox(paste0(round(testvalue,2),"%"), "12 Month Moving Average", width = 6, color = "orange"),
                                     valueBox(paste0(round(testvalue2,2),"%"), "Point to Point", width=6, color="green")),
-                                    fluidRow(plotlyOutput("plot3")),
+                                    fluidRow(plotlyOutput("plot2")),
                                     fluidRow(DTOutput("table2")),),
                                    
                                     
@@ -234,77 +236,50 @@ server <- function(input, output) {
     
     
     
+    
+    
+    
     output$plot2 <- 
-        renderPlotly({
-            
-            i<-ggplot(
-                inflation %>% 
-                    filter(type!="jul_01_rw_ptp" & 
-                               date>"1993-12-31" & 
-                               type!=""),
-                aes(
-                    x = date,
-                    y = rate,
-                    group = type,
-                    colour = type
-                ))+
-              geom_line(size=1)+
-                labs(title="% Moving Average")+
-                theme_fivethirtyeight()+
-                scale_x_date(breaks = inflation$date)+
-                theme(panel.background = element_rect(fill = "transparent"),
-                      plot.background = element_rect(fill = "transparent"),
-                      panel.grid.major.x = element_blank(),
-                      legend.position = "right",
-                      legend.background = element_rect(fill = "transparent"),
-                      axis.text.x = element_text(angle = 90))
-                
-            ggplotly(i)%>%config(displayModeBar = FALSE)
-            
-        })
-    
-    
-    
-    output$plot3 <- 
         renderPlotly({
             
             
             if ("Moving Average" %in% input$Type) {
                 plot_data <-
                     inflation_long %>% 
-                    filter(type == "jul_01_ma" | type=="jul_01_rw_ma"| type==
-                              "may_94_ma") %>% 
-                    filter(date %in% seq(input$date_range_inf[1],     
+                    filter(base_year == "2001" | base_year=="2001(Reweighted)"| base_year==
+                              "1994") %>% 
+                    filter(Date %in% seq(input$date_range_inf[1],     
                                          input$date_range_inf[2], 
                                          by = "day")) %>% 
                     filter(rate > 0) %>% 
-                    select(date, type, rate)
+                    select(Date, base_year, rate)
             }
             else{
                 plot_data <-
                     inflation_long %>% 
-                    filter(type == "jul_01_rw_ma"| type==
-                               "jul_01_rw_ptp") %>% 
-                    filter(date %in% seq(input$date_range_inf[1],     
+                    filter(base_year == "2001(Reweighted)"| base_year==
+                               "2001(Point to Point)") %>% 
+                    filter(Date %in% seq(input$date_range_inf[1],     
                                          input$date_range_inf[2], 
                                          by ="day")) %>% drop_na(rate)%>%
-                    select(date, type, rate)
+                    select(Date, base_year, rate)
             }
             
             j<-ggplot(
                 plot_data,
-                aes(x=date, y=rate, group=type, colour=type))+
+                aes(x=Date, y=rate, group=base_year, colour=base_year, text=paste("Date:", Date 
+                                                                                  ,"<br>Rate:", rate,"%")))+
                 geom_line()+
                 labs(title=input$Type)+
                 theme_fivethirtyeight()+
-                scale_x_date(breaks = inflation$date)+
+                scale_x_date(breaks = inflation$Date)+
                 theme(panel.background = element_rect(fill = "transparent"),
                       plot.background = element_rect(fill = "transparent"),
                       panel.grid.major.x = element_blank(),
                       legend.background = element_rect(fill = "transparent"),
                       axis.text.x = element_text(angle = 90))
             
-            ggplotly(j)%>%config(displayModeBar = FALSE)
+            ggplotly(j, tooltip="text")%>%config(displayModeBar = FALSE)
             
         })
     
